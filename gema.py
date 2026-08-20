@@ -12,15 +12,44 @@ TARGET_CHAT = -1002439987653
 
 @loader.tds
 class GeminiAutoChatMod(loader.Module):
-    """Авто-ответчик через Gemini AI для чата"""
+    """Авто-ответчик через Gemini AI с тумблером вкл/выкл"""
 
     strings = {"name": "GeminiAutoChat"}
 
     def __init__(self):
         self.history = []
+        self.active = False  # По умолчанию ВЫКЛЮЧЕНО
+
+    async def geminicmd(self, message):
+        """<on/off> - Включить или выключить Gemini в чате"""
+        args = utils.get_args_raw(message).lower().strip()
+
+        if args == "on":
+            self.active = True
+            await utils.answer(
+                message, "🤖 <b>Gemini AI успешно ВКЛЮЧЕН!</b>"
+            )
+        elif args == "off":
+            self.active = False
+            await utils.answer(
+                message, "🛑 <b>Gemini AI ВЫКЛЮЧЕН!</b>"
+            )
+        else:
+            status = "ВКЛЮЧЕН 🟢" if self.active else "ВЫКЛЮЧЕН 🔴"
+            await utils.answer(
+                message,
+                f"ℹ️ Статус ИИ: <b>{status}</b>\n\n"
+                f"Использование:\n"
+                f"• <code>.gemini on</code> — Включить\n"
+                f"• <code>.gemini off</code> — Выключить",
+            )
 
     @loader.watcher()
     async def watcher(self, message):
+        # Если выключено — ничего не делаем
+        if not self.active:
+            return
+
         if not message.text or getattr(message, "out", False):
             return
 
@@ -42,7 +71,7 @@ class GeminiAutoChatMod(loader.Module):
             {"role": "user", "parts": [{"text": f"{user_name}: {user_text}"}]}
         )
 
-        # Храним только последние 4 сообщения для жесткой экономии токенов
+        # Экономия токенов: держим максимум 4 сообщения
         if len(self.history) > 4:
             self.history = self.history[-4:]
 
